@@ -1,0 +1,121 @@
+#!/bin/bash
+
+# Copyright (c) 2009 Tero Tasanen [t3r0@t3r0.net]
+
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+
+ADMIN_EMAIL=t3r0@t3r0.net # Change this
+WWW_ROOT=/var/www
+LOG_ROOT=/var/log/apache2
+APACHE_SITES=/etc/apache2/sites-available/
+
+
+DOMAIN=$1
+
+source /etc/apache2/envvars
+
+
+function usage {
+cat <<- _EOF_
+USAGE: $0 <domain>
+_EOF_
+
+}
+
+function build_directory_structure {
+	mkdir -p $WWW_ROOT/$DOMAIN
+	mkdir -p $LOG_ROOT/$DOMAIN
+}
+
+function set_permissions {
+	chown -R $APACHE_RUN_USER:$APACHE_RUN_GROUP $WWW_ROOT/$DOMAIN
+}
+
+
+function make_index {
+cat <<- _EOF_
+	<html><head><title>$DOMAIN</title></head><body>$DOMAIN</body></html>
+_EOF_
+}
+
+function build_vhost {
+cat <<- _EOF_
+	<VirtualHost *:80>
+	        ServerAdmin $ADMIN_EMAIL
+	        ServerName $DOMAIN
+	        ServerAlias www.$DOMAIN
+
+	        DocumentRoot $WWW_ROOT/$DOMAIN
+	        
+		<Directory $WWW_ROOT/$DOMAIN>
+	                Options -Indexes FollowSymLinks MultiViews
+	                AllowOverride All
+	                Order allow,deny
+	                Allow from all
+	        </Directory>
+		
+		LogLevel warn
+	        ErrorLog $LOG_ROOT/$DOMAIN/error.log
+	        CustomLog $LOG_ROOT/$DOMAIN/access.log combined
+	</VirtualHost>
+_EOF_
+}
+
+
+if [ "$DOMAIN" == "" ]
+then
+	usage
+	exit 1
+fi
+
+
+
+if [ -f $APACHE_SITES/$DOMAIN ]
+then
+	echo "SITE EXISTS. Exiting"
+	exit 1
+fi
+
+build_directory_structure
+build_vhost > $APACHE_SITES/$DOMAIN
+make_index > $WWW_ROOT/$DOMAIN/index.html
+set_permissions
+
+
+echo "Created the VirtualHost file."
+echo "Do you want to enable the site? (y/N)"
+read -e ENABLE
+
+if [ $ENABLE == "y" ]
+then
+	a2ensite $DOMAIN
+fi
+
+echo "Reload Apache now? (y/N)"
+read -e RELOAD
+
+if [ $RELOAD == "y" ]
+then
+	/etc/init.d/apache2 reload
+fi
+
+exit 0
