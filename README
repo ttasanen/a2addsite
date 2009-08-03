@@ -1,1 +1,7 @@
-Simple shell scipt to create new apache2 virtual hosts in debian based linux distros
+Simple shell script to create new apache2 virtual hosts in debian based linux distros
+
+
+== USAGE
+a2addsite <domain>
+
+
